@@ -1,6 +1,8 @@
-This is a very simple implementation of 3D drawing using LTK.  Right now it only handles lines, but can draw 3D lines using a perspective transformation.
+This is a very simple implementation of 3D drawing using LTK.  It's primarily for me to expirment with some computer graphics concepts like projects and transformations, as well as some other simple 3D grpahics "stuff".
 
-My next step is to clean up the code a bit, but after that I plan on using it as a base for a simple surface/curve plotter, and also a 3D turtle graphics system.
+As a demonstration, a simple 3D surface plotter is implemented.
+
+I plan on also implementing a simple 3D turtle graphics system.
 
 Sample usage:
 
@@ -12,10 +14,14 @@ Sample usage:
     ; Loading "ltk3d"
     .............
     (LTK3D)
-    * (ltk3d:run-tests)
-    All tests passed!
-    NIL
-    * (ltk3d:main)
+    * (ltk3d:plot-function :equation (ltk3d:make-parametric-equation 
+                                             :umin (coerce (* -2 pi) 'single-float)
+                                             :umax (coerce (* 2 pi) 'single-float)
+                                             :vmin (coerce (* -2 pi) 'single-float)
+                                             :vmax (coerce (* 2 pi) 'single-float)
+                                             :usteps 32 :vsteps 32
+                                             :yf (lambda (u v) (* 1.5 (sin u) (cos v)))))
     NIL
 ```
 
+![Screenshot](http://www.laroccophoto.com/photos/i-9HrFJf6/0/XL/i-9HrFJf6-XL.png)

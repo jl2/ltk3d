@@ -2,7 +2,7 @@
 
 (defpackage #:ltk3d
   (:use #:cl)
-  (:export #:main
+  (:export #:plot-function
            #:make-pt3d
            #:create-pt3d
            #:make-matrix
@@ -18,5 +18,6 @@
            #:rotate-x
            #:rotate-y
            #:rotate-z
-           #:create-matrix))
+           #:create-matrix
+           #:make-parametric-equation))
 

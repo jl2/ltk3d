@@ -251,12 +251,26 @@
   (ltk3d:create-pt3d (- (random sz) (/ sz 2.0)) (- (random sz) (/ sz 2.0))
                      (- (random sz) (/ sz 2.0)) 1.0))
 
-(defun main (&key
-               (width 800) (height 800)
-               (left -11.0) (right 11.0)
-               (bottom -11.0) (top 11.0)
-               (near -11.0) (far 11.0))
-  (declare (type single-float left right bottom top near far))
+
+(defstruct parametric-equation
+  (umin (coerce (* -2 pi) 'single-float) :type single-float)
+  (umax (coerce (* 2 pi) 'single-float) :type single-float)
+  (vmin (coerce (* -2 pi) 'single-float) :type single-float)
+  (vmax (coerce (* 2 pi) 'single-float) :type single-float)
+  (usteps 20 :type (unsigned-byte 32))
+  (vsteps 20 :type (unsigned-byte 32))
+  (xf (lambda (u v) u))
+  (yf (lambda (u v) (* 4.0 (cos v) (sin u))))
+  (zf (lambda (u v) v)))
+
+(defun plot-function (&key
+                        (width 800) (height 800)
+                        (left -11.0) (right 11.0)
+                        (bottom -11.0) (top 11.0)
+                        (near -11.0) (far 11.0)
+                        (equation (make-parametric-equation)))
+  (declare (type single-float left right bottom top near far)
+           (type parametric-equation equation))
   (ltk:with-ltk ()
     (let* ((canv (make-instance 'ltk:canvas 
                                 :master nil
@@ -274,39 +288,33 @@
                           0.0 0.0 0.0 1.0))
            
            ;; (ntrans (mat-mul (rotate-z (/ pi 1.2)) (mat-mul screen-trans (mat-mul (rotate-y (/ pi 4)) trans))))
-           (ntrans (mat-mul (translate (- (* 2.0 pi)) 0 (- (* 2.0 pi))) (mat-mul (rotate-x (/ pi 5)) (mat-mul (rotate-z (/ pi 5)) (mat-mul (rotate-y (/ pi 5))  (mat-mul screen-trans trans)))))))
-
-      (let* ((xmin 0.0)
-             (xmax (* pi 4))
-             (ymin 0.0)
-             (ymax (* pi 4))
-             (xsteps 50)
-             (ysteps 50)
-             (dx (/ (- xmax xmin) xsteps))
-             (dy (/ (- ymax ymin) ysteps))
-             (cx xmin)
-             (cy ymin))
-        (flet ((fxy (xv yv)
-                 (* 4.0 (sin xv) (cos yv))))
-        
-          (loop for i below xsteps
-             do
-               (loop for j below ysteps
-                  do
-                    (let* ((cx (+ xmin (* dx i)))
-                           (cy (+ ymin (* dy j)))
-                           (p1 (create-pt3d cx (fxy cx cy) cy))
-                           (p2 (create-pt3d (+ cx dx) (fxy (+ cx dx) cy) cy))
-                           (p3 (create-pt3d (+ cx dx) (fxy (+ cx dx) (+ cy dy)) (+ cy dy)))
-                           (p4 (create-pt3d cx (fxy cx (+ cy dy)) (+ cy dy))))
-                      (draw-quad canv ntrans p1 p2 p3 p4))))))
-             ;;                      (let ((xp (create-pt3d (coerce i 'single-float) 0.0 0.0))
-             ;;     (yp (create-pt3d 0.0 (coerce i 'single-float) 0.0))
-             ;;     (zp (create-pt3d 0.0 0.0 (coerce i 'single-float))))
-             ;; (draw-pt3d canv ntrans xp)
-             ;; (draw-pt3d canv ntrans yp)
-             ;; (draw-pt3d canv ntrans zp)))
+           (ntrans (mat-mul (rotate-x (/ pi 5)) (mat-mul (rotate-z (/ pi 5)) (mat-mul (rotate-y (/ pi 5))  (mat-mul screen-trans trans)))))
+           (umin (parametric-equation-umin equation))
+           (umax (parametric-equation-umax equation))
+           (vmin (parametric-equation-vmin equation))
+           (vmax (parametric-equation-vmax equation))
+           (usteps (parametric-equation-usteps equation))
+           (vsteps (parametric-equation-vsteps equation))
+           (du (/ (- umax umin) usteps))
+           (dv (/ (- vmax vmin) vsteps))
+           (cu vmin)
+           (cv vmin))
       
+      (flet ((xf (u v) (funcall (parametric-equation-xf equation) u v))
+             (yf (u v) (funcall (parametric-equation-yf equation) u v))
+             (zf (u v) (funcall (parametric-equation-zf equation) u v)))
+        (loop for i below usteps
+           do
+             (loop for j below vsteps
+                do
+                  (let* ((cu (+ umin (* du i)))
+                         (cv (+ vmin (* dv j)))
+                         (p1 (create-pt3d (xf cu cv) (yf cu cv) (zf cu cv)))
+                         (p2 (create-pt3d (xf (+ cu du) cv) (yf (+ cu du) cv) (zf (+ cu du) cv)))
+                         (p3 (create-pt3d (xf (+ cu du) (+ cv dv)) (yf (+ cu du) (+ cv dv)) (zf (+ cu du) (+ cv dv))))
+                         (p4 (create-pt3d (xf cu (+ cv dv)) (yf cu (+ cv dv)) (zf cu (+ cv dv)))))
+
+                    (draw-quad canv ntrans p1 p2 p3 p4)))))
       (ltk:pack canv))))
 
 (declaim (inline tol-equal))
