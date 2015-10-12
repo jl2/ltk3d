@@ -1,4 +1,4 @@
-This is a very simple implementation of 3D drawing using LTK.  It's primarily for me to expirment with some computer graphics concepts like projects and transformations, as well as some other simple 3D grpahics "stuff".
+This is a very simple implementation of 3D drawing using LTK.  It's primarily for me to expirment with some computer graphics concepts like projects and transformations, as well as some other simple 3D graphics "stuff".
 
 As a demonstration, a simple 3D surface plotter is implemented.
 
