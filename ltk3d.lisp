@@ -13,9 +13,12 @@
 
 ;; Convienence function to create a pt3d with x,y,z and possible w values
 ;; (declaim (inline create-pt3d))
-(defun create-pt3d (x y z &optional (w 1.0))
-  (declare (type single-float x y z w))
-  (the pt3d (make-pt3d :pt (make-array 4 :element-type 'single-float :initial-contents (list x y z w)))))
+(defun create-pt3d (x y z &optional (w 1.0d0))
+  ;; (declare (type single-float x y z w))
+  (the pt3d (make-pt3d :pt (make-array 4 :element-type 'single-float :initial-contents (list (coerce x 'single-float)
+                                                                                             (coerce y 'single-float)
+                                                                                             (coerce z 'single-float)
+                                                                                             (coerce w 'single-float))))))
 
 (declaim (inline get-pt))
 (defun get-pt (pt idx)
@@ -209,14 +212,10 @@
   (pt1 (make-pt3d) :type pt3d)
   (pt2 (make-pt3d) :type pt3d))
 
-(defmacro scale-val (val minval maxval minnew maxnew)
-  `(let ((new-diff (- ,maxnew ,minnew))
-         (old-diff (- ,maxval ,minval))
-         (val-diff (- ,val ,minval)))
-     (+ (* (/ val-diff old-diff) new-diff) ,minnew)))
-
 (declaim (inline draw-line3d))
-(defun draw-line3d (canvas mat p1 p2 xmin xmax ymin ymax width height)
+(defun draw-line3d (canvas mat p1 p2)
+  (declare (type matrix mat)
+           (type pt3d p1 p2))
   (let ((tp1 (xform p1 mat))
         (tp2 (xform p2 mat)))
     (let ((pt1x (pt3d-x tp1))
@@ -227,19 +226,26 @@
                         (floor pt1x) (floor pt1y)
                         (floor pt2x) (floor pt2y)))))
 
-(defun draw-pt3d (canvas mat pt xmin xmax ymin ymax width height &optional (tick-size 0.125))
+(declaim (inline draw-quad))
+(defun draw-quad (canvas mat p1 p2 p3 p4)
+  (declare (type matrix mat)
+           (type pt3d p1 p2 p3 p4))
+  (draw-line3d canvas mat p1 p2)
+  (draw-line3d canvas mat p2 p3)
+  (draw-line3d canvas mat p3 p4)
+  (draw-line3d canvas mat p4 p1))
+
+(defun draw-pt3d (canvas mat pt &optional (tick-size 0.125))
   "Draw a point as a mini-axis."
   (let ((tp (create-pt3d (pt3d-x pt) (+ (pt3d-y pt) tick-size) (pt3d-z pt)))
         (bp (create-pt3d (pt3d-x pt) (- (pt3d-y pt) tick-size) (pt3d-z pt)))
-
         (lp (create-pt3d (- (pt3d-x pt) tick-size) (pt3d-y pt) (pt3d-z pt)))
         (rp (create-pt3d (+ (pt3d-x pt) tick-size) (pt3d-y pt) (pt3d-z pt)))
-
         (np (create-pt3d (pt3d-x pt) (pt3d-y pt) (+ (pt3d-z pt) tick-size)))
         (fp (create-pt3d (pt3d-x pt) (pt3d-y pt) (- (pt3d-z pt) tick-size))))
-    (draw-line3d canvas mat tp bp xmin xmax ymin ymax width height)
-    (draw-line3d canvas mat lp rp xmin xmax ymin ymax width height)
-    (draw-line3d canvas mat np fp xmin xmax ymin ymax width height)))
+    (draw-line3d canvas mat tp bp)
+    (draw-line3d canvas mat lp rp)
+    (draw-line3d canvas mat np fp)))
 
 (defun random-pt3d (&optional (sz 8.0))
   (ltk3d:create-pt3d (- (random sz) (/ sz 2.0)) (- (random sz) (/ sz 2.0))
@@ -267,22 +273,40 @@
                           0.0 0.0 (- near far) 0.0
                           0.0 0.0 0.0 1.0))
            
-           (ntrans (mat-mul (rotate-z (/ pi 1.2)) (mat-mul screen-trans (mat-mul (rotate-y (/ pi 4)) trans)))))
+           ;; (ntrans (mat-mul (rotate-z (/ pi 1.2)) (mat-mul screen-trans (mat-mul (rotate-y (/ pi 4)) trans))))
+           (ntrans (mat-mul (translate (- (* 2.0 pi)) 0 (- (* 2.0 pi))) (mat-mul (rotate-x (/ pi 5)) (mat-mul (rotate-z (/ pi 5)) (mat-mul (rotate-y (/ pi 5))  (mat-mul screen-trans trans)))))))
+
+      (let* ((xmin 0.0)
+             (xmax (* pi 4))
+             (ymin 0.0)
+             (ymax (* pi 4))
+             (xsteps 50)
+             (ysteps 50)
+             (dx (/ (- xmax xmin) xsteps))
+             (dy (/ (- ymax ymin) ysteps))
+             (cx xmin)
+             (cy ymin))
+        (flet ((fxy (xv yv)
+                 (* 4.0 (sin xv) (cos yv))))
+        
+          (loop for i below xsteps
+             do
+               (loop for j below ysteps
+                  do
+                    (let* ((cx (+ xmin (* dx i)))
+                           (cy (+ ymin (* dy j)))
+                           (p1 (create-pt3d cx (fxy cx cy) cy))
+                           (p2 (create-pt3d (+ cx dx) (fxy (+ cx dx) cy) cy))
+                           (p3 (create-pt3d (+ cx dx) (fxy (+ cx dx) (+ cy dy)) (+ cy dy)))
+                           (p4 (create-pt3d cx (fxy cx (+ cy dy)) (+ cy dy))))
+                      (draw-quad canv ntrans p1 p2 p3 p4))))))
+             ;;                      (let ((xp (create-pt3d (coerce i 'single-float) 0.0 0.0))
+             ;;     (yp (create-pt3d 0.0 (coerce i 'single-float) 0.0))
+             ;;     (zp (create-pt3d 0.0 0.0 (coerce i 'single-float))))
+             ;; (draw-pt3d canv ntrans xp)
+             ;; (draw-pt3d canv ntrans yp)
+             ;; (draw-pt3d canv ntrans zp)))
       
-      (loop for i from -10 to 10
-         do
-           (let ((xp (create-pt3d (coerce i 'single-float) 0.0 0.0))
-                 (yp (create-pt3d 0.0 (coerce i 'single-float) 0.0))
-                 (zp (create-pt3d 0.0 0.0 (coerce i 'single-float))))
-             (draw-pt3d canv ntrans 
-                        xp
-                        left right bottom top width height)
-             (draw-pt3d canv ntrans 
-                        yp
-                        left right bottom top width height)
-             (draw-pt3d canv ntrans 
-                        zp
-                        left right bottom top width height)))
       (ltk:pack canv))))
 
 (declaim (inline tol-equal))
@@ -294,7 +318,6 @@
        (tol-equal (pt3d-y pt1) (pt3d-y pt2) eps)
        (tol-equal (pt3d-z pt1) (pt3d-z pt2) eps)
        (tol-equal (pt3d-w pt1) (pt3d-w pt2) eps)))
-
 
 (defun matrix= (m1 m2 &optional (eps 0.000001))
   (let ((good-so-far t))
